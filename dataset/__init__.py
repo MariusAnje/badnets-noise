@@ -14,7 +14,7 @@ def build_init_data(dataname, download, dataset_path):
 
 def build_poisoned_training_set(is_train, args):
     transform, detransform = build_transform(args.dataset)
-    print("Transform = ", transform)
+    # print("Transform = ", transform)
 
     if args.dataset == 'CIFAR10':
         trainset = CIFAR10Poison(args, args.data_path, train=is_train, download=True, transform=transform)
@@ -26,15 +26,15 @@ def build_poisoned_training_set(is_train, args):
         raise NotImplementedError()
 
     assert nb_classes == args.nb_classes
-    print("Number of the class = %d" % args.nb_classes)
-    print(trainset)
+    # print("Number of the class = %d" % args.nb_classes)
+    # print(trainset)
 
     return trainset, nb_classes
 
 
 def build_testset(is_train, args):
     transform, detransform = build_transform(args.dataset)
-    print("Transform = ", transform)
+    # print("Transform = ", transform)
 
     if args.dataset == 'CIFAR10':
         testset_clean = datasets.CIFAR10(args.data_path, train=is_train, download=True, transform=transform)
@@ -48,8 +48,8 @@ def build_testset(is_train, args):
         raise NotImplementedError()
 
     assert nb_classes == args.nb_classes
-    print("Number of the class = %d" % args.nb_classes)
-    print(testset_clean, testset_poisoned)
+    # print("Number of the class = %d" % args.nb_classes)
+    # print(testset_clean, testset_poisoned)
 
     return testset_clean, testset_poisoned
 

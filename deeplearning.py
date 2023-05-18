@@ -17,7 +17,8 @@ def optimizer_picker(optimization, param, lr):
 def train_one_epoch(data_loader, model, criterion, optimizer, loss_mode, device):
     running_loss = 0
     model.train()
-    for step, (batch_x, batch_y) in enumerate(tqdm(data_loader)):
+    # for step, (batch_x, batch_y) in enumerate(tqdm(data_loader)):
+    for step, (batch_x, batch_y) in enumerate(data_loader):
 
         batch_x = batch_x.to(device, non_blocking=True)
         batch_y = batch_y.to(device, non_blocking=True)
@@ -35,7 +36,8 @@ def train_one_epoch(data_loader, model, criterion, optimizer, loss_mode, device)
             }
 
 def evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device):
-    ta = eval(data_loader_val_clean, model, device, print_perform=True)
+    # ta = eval(data_loader_val_clean, model, device, print_perform=True)
+    ta = eval(data_loader_val_clean, model, device, print_perform=False)
     asr = eval(data_loader_val_poisoned, model, device, print_perform=False)
     return {
             'clean_acc': ta['acc'], 'clean_loss': ta['loss'],
@@ -48,7 +50,8 @@ def eval(data_loader, model, device, batch_size=64, print_perform=False):
     y_true = []
     y_predict = []
     loss_sum = []
-    for (batch_x, batch_y) in tqdm(data_loader):
+    # for (batch_x, batch_y) in tqdm(data_loader):
+    for (batch_x, batch_y) in data_loader:
 
         batch_x = batch_x.to(device, non_blocking=True)
         batch_y = batch_y.to(device, non_blocking=True)
