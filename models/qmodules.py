@@ -1,5 +1,5 @@
 import torch
-from modules import SModule, NModule
+from models.modules import SModule, NModule
 from Functions import QuantFunction
 from torch import nn
 from Functions import SLinearFunction, SConv2dFunction, SMSEFunction, SCrossEntropyLossFunction, SBatchNorm2dFunction

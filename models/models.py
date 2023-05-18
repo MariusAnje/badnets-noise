@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from Functions import SCrossEntropyLossFunction
-from modules import SLinear, SReLU, SModel, SConv2d, SMaxpool2D
+from models.modules import SLinear, SReLU, SModel, SConv2d, SMaxpool2D
 
 
 class SCrossEntropyLoss(nn.Module):
@@ -233,7 +233,7 @@ class CIFAR(SModel):
             num_features *= s
         return num_features
 
-from modules import NConv2d, NLinear
+from models.modules import NConv2d, NLinear
 class FakeCIFAR(nn.Module):
     def __init__(self):
         super().__init__()

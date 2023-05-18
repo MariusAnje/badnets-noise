@@ -1,20 +1,29 @@
 import torch
 import time
-from cw_attack import Attack, WCW, binary_search_c, binary_search_dist, PGD
 import numpy as np
 import torchvision
 import torchvision.transforms as transforms
 from torch import nn
-import modules
-from models import SCrossEntropyLoss, SMLP3, SMLP4, SLeNet, CIFAR, FakeSCrossEntropyLoss, SAdvNet
-from qmodels import QSLeNet, QCIFAR
-import resnet
-import qresnet
-import qvgg
-import qdensnet
-import qresnetIN
+from models import modules
+from models.models import SCrossEntropyLoss, SMLP3, SMLP4, SLeNet, CIFAR, FakeSCrossEntropyLoss, SAdvNet
+from models.qmodels import QSLeNet, QCIFAR
+from models import resnet
+from models import qresnet
+from models import qvgg
+from models import qdensnet
+from models import qresnetIN
 from torch import optim
 import logging
+from dataset import build_poisoned_training_set, build_testset
+from deeplearning import evaluate_badnets
+
+def get_poision_datasets(args, BS, NW):
+    dataset_train, args.nb_classes = build_poisoned_training_set(is_train=True, args=args)
+    dataset_val_clean, dataset_val_poisoned = build_testset(is_train=False, args=args)
+    data_loader_train        = torch.utils.data.DataLoader(dataset_train,         batch_size=BS, shuffle=True, num_workers=NW)
+    data_loader_val_clean    = torch.utils.data.DataLoader(dataset_val_clean,     batch_size=BS, shuffle=True, num_workers=NW)
+    data_loader_val_poisoned = torch.utils.data.DataLoader(dataset_val_poisoned,  batch_size=BS, shuffle=True, num_workers=NW)
+    return data_loader_train, data_loader_val_clean, data_loader_val_poisoned
 
 def get_dataset(args, BS, NW):
     if args.model == "CIFAR" or args.model == "Res18" or args.model == "QCIFAR" or args.model == "QRes18" or args.model == "QDENSE":
@@ -226,26 +235,6 @@ def CEval(model_group):
             total += len(correction)
     return (correct/total).cpu().item()
 
-def PGD_Eval(model_group, steps, attack_dist, attack_function, use_tqdm = False):
-    model, criteriaF, optimizer, scheduler, device, trainloader, testloader = model_group
-    if steps == 0:
-        return CEval(model_group)
-    model.eval()
-    model.clear_noise()
-    model.normalize()
-    step_size = attack_dist / steps
-    attacker = PGD(model, attack_dist, step_size=step_size, steps=steps * 10)
-    attacker.set_f(attack_function)
-    attacker(testloader, use_tqdm)
-    # attacker.save_noise(f"lol_{header}_{args.attack_dist:.4f}.pt")
-    this_accuracy = CEval(model_group)
-    this_max = attacker.noise_max().item()
-    this_l2 = attacker.noise_l2().item()
-    # print(f"PGD Results --> acc: {this_accuracy:.4f}, l2: {this_l2:.4f}, max: {this_max:.4f}")
-    model.clear_noise()
-    model.de_normalize()
-    return this_accuracy, this_max, this_l2
-
 def CEval_Dist(model_group, num_classes=10):
     model, criteriaF, optimizer, scheduler, device, trainloader, testloader = model_group
     model.eval()
@@ -431,32 +420,6 @@ def TMEachEval(t_model_group, noise_type, dev_var_list, rate_max, rate_zero, wri
             acc_list.append((correct/total).cpu().item())
     return acc_list
 
-def TPGD_Eval(t_model_group, steps, attack_dist, attack_function, use_tqdm = False):
-    t_model, criteriaF, optimizer, w_optimizer, scheduler, device, trainloader, testloader = t_model_group
-    acc_list = []
-    expand = 10
-    for i in range(len(t_model)):
-        model = t_model[i]
-        model_group = [model, criteriaF, optimizer, scheduler, device, trainloader, testloader]
-        if steps == 0:
-            return CEval(model_group)
-        model.eval()
-        model.clear_noise()
-        model.normalize()
-        step_size = attack_dist / steps
-        attacker = PGD(model, attack_dist, step_size=step_size, steps=steps * expand)
-        attacker.set_f(attack_function)
-        attacker(testloader, use_tqdm)
-        # attacker.save_noise(f"lol_{header}_{args.attack_dist:.4f}.pt")
-        this_accuracy = CEval(model_group)
-        this_max = attacker.noise_max().item()
-        this_l2 = attacker.noise_l2().item()
-        # print(f"PGD Results --> acc: {this_accuracy:.4f}, l2: {this_l2:.4f}, max: {this_max:.4f}")
-        model.clear_noise()
-        model.de_normalize()
-        acc_list.append(this_accuracy)
-    return acc_list
-
 def TCEval(t_model_group):
     t_model, criteriaF, optimizer, w_optimizer, scheduler, device, trainloader, testloader = t_model_group
     acc_list = []
@@ -610,110 +573,6 @@ def HMTrain(model_group, epochs, header, noise_type, dev_var, rate_max, rate_zer
             end_time = time.time()
             print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, clean acc: {noise_free_acc:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
         scheduler.step()
-
-def PMTrain(model_group, epochs, header, noise_type, dev_var, rate_max, rate_zero, write_var, verbose=False, **kwargs):
-    model, criteriaF, optimizer, scheduler, device, trainloader, testloader = model_group
-    best_acc = 0.0
-    for i in range(epochs):
-        start_time = time.time()
-        model.train()
-        running_loss = 0.
-        # for images, labels in tqdm(trainloader):
-        for images, labels in trainloader:
-            model.clear_noise()
-            model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
-            optimizer.zero_grad()
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss = criteriaF(outputs,labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
-        pgd_acc, _, _ = PGD_Eval(model_group, 5, 0.040, "act", use_tqdm = False)
-        # test_acc = CEval()
-        if test_acc > best_acc:
-            best_acc = test_acc
-            torch.save(model.state_dict(), f"tmp_best_{header}.pt")
-        if verbose:
-            end_time = time.time()
-            print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, pgd acc: {pgd_acc:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
-        scheduler.step()
-
-def TPMTrain(three_model_group, warm_epochs, epochs, header, noise_type, dev_var_start, dev_var_end, rate_max, rate_zero, write_var, attack_runs, attack_dist, logger=None, verbose=False, **kwargs):
-    t_model, criteriaF, t_optimizer, w_optimizer, t_scheduler, device, trainloader, testloader = three_model_group
-    best_acc = 0.0
-    start, end = dev_var_start, dev_var_end
-    merged_flag = False
-
-    for ep in range(warm_epochs + epochs):
-        if end - start < 1e-4 and not merged_flag:
-            three_model_group = [t_model[1]], criteriaF, [t_optimizer[1]], [w_optimizer[1]], [t_scheduler[1]], device, trainloader, testloader
-            t_model, criteriaF, t_optimizer, w_optimizer, t_scheduler, device, trainloader, testloader = three_model_group
-            merged_flag = True
-
-        mid = (start + end)/2
-        oForth = (end - start) / 4
-        left = start + oForth
-        right = end - oForth
-        dev_var_list = [left, mid, right]
-        start_time = time.time()
-        for i in range(len(t_model)):
-            t_model[i].train()
-        running_loss = 0.
-        # for images, labels in tqdm(trainloader):
-        for images, labels in trainloader:
-            for i in range(len(t_model)):
-                t_model[i].clear_noise()
-                t_model[i].set_noise_multiple(noise_type, dev_var_list[i], rate_max, rate_zero, write_var, **kwargs)
-                t_optimizer[i].zero_grad()
-                images, labels = images.to(device), labels.to(device)
-                outputs = t_model[i](images)
-                loss = criteriaF(outputs,labels)
-                loss.backward()
-                if ep >= warm_epochs:
-                    t_optimizer[i].step()
-                else:
-                    w_optimizer[i].step()
-                running_loss += loss.item()
-        test_acc = TMEachEval(three_model_group, noise_type, dev_var_list, rate_max, rate_zero, write_var, **kwargs)
-        best_pgd_index = min(len(t_model) - 1, 1)
-        if ep >= warm_epochs:
-            TUpdateBN(three_model_group)
-            pgd_acc = TPGD_Eval(three_model_group, attack_runs, attack_dist, "act", use_tqdm = False)
-            best_pgd_index = np.argmax(pgd_acc)
-
-            if verbose:
-                end_time = time.time()
-                if logger is None:
-                    print(f"epoch: {ep:-3d}, test acc: {test_acc[best_pgd_index]:.4f}, pgd acc: {pgd_acc[best_pgd_index]:.4f}, start: {start:.4f}, end: {end:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
-                else:
-                    logger.info(f"epoch: {ep:-3d}, test acc: {test_acc[best_pgd_index]:.4f}, pgd acc: {pgd_acc[best_pgd_index]:.4f}, start: {start:.4f}, end: {end:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
-            
-            if best_pgd_index == 0:
-                end = right
-            elif best_pgd_index == 1:
-                start = left
-                end = right
-            else:
-                start = left
-            for i in range(len(t_model)):
-                t_model[i].load_state_dict(t_model[best_pgd_index].state_dict())
-
-            # test_acc = CEval()
-            if pgd_acc[best_pgd_index] > best_acc:
-                best_acc = pgd_acc[best_pgd_index]
-                torch.save(t_model[best_pgd_index].state_dict(), f"tmp_best_{header}.pt")
-            
-            for i in range(len(t_scheduler)):
-                t_scheduler[i].step()
-        else:
-            if verbose:
-                end_time = time.time()
-                if logger is None:
-                    print(f"warm up epoch: {ep:-3d}, test acc: {test_acc[best_pgd_index]:.4f}, mid: {mid:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
-                else:
-                    logger.info(f"warm up epoch: {ep:-3d}, test acc: {test_acc[best_pgd_index]:.4f}, mid: {mid:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
 
 def TNMTrain(three_model_group, warm_epochs, epochs, header, noise_type, dev_var_start, dev_var_end, rate_max, rate_zero, write_var, attack_runs, attack_dist, logger=None, verbose=False, **kwargs):
     t_model, criteriaF, t_optimizer, w_optimizer, t_scheduler, device, trainloader, testloader = three_model_group
@@ -881,31 +740,6 @@ def str2bool(a):
         return False
     else:
         raise NotImplementedError(f"{a}")
-
-def attack_wcw(model, val_data, verbose=False):
-    def my_target(x,y):
-        return (y+1)%10
-    max_list = []
-    avg_list = []
-    acc_list = []
-    for _ in range(1):
-        model.clear_noise()
-        model.set_noise(1e-5, 0)
-        attacker = WCW(model, c=args.attack_c, kappa=0, steps=args.attack_runs, lr=args.attack_lr, method=args.attack_method)
-        # attacker.set_mode_targeted_random(n_classses=10)
-        # attacker.set_mode_targeted_by_function(my_target)
-        attacker.set_mode_default()
-        attacker(val_data)
-        max_list.append(attacker.noise_max().item())
-        avg_list.append(attacker.noise_l2().item())
-        attack_accuracy = CEval()
-        acc_list.append(attack_accuracy)
-    
-    mean_attack = np.mean(acc_list)
-    if verbose:
-        print(f"L2 norm: {np.mean(avg_list):.4f}, max: {np.mean(max_list):.4f}, acc: {mean_attack:.4f}")
-    w = attacker.get_noise()
-    return mean_attack, w
 
 def f_act(targeted, outputs, labels, kappa=0, gamma=1e10):
     one_hot_labels = torch.eye(len(outputs[0]))[labels.cpu()].to(outputs.device)

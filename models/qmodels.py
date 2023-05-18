@@ -1,9 +1,9 @@
 import torch
 from torch import nn
 from Functions import SCrossEntropyLossFunction
-from modules import SReLU, SModel, SMaxpool2D, SModule, NModule
-from modules import SReLU, SModel, SMaxpool2D, SFixedDropout, SAct
-from qmodules import QSLinear, QSConv2d
+from models.modules import SReLU, SModel, SMaxpool2D, SModule, NModule
+from models.modules import SReLU, SModel, SMaxpool2D, SFixedDropout, SAct
+from models.qmodules import QSLinear, QSConv2d
 
 class QSModel(SModel):
     def set_quantization(self, N):
