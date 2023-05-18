@@ -450,6 +450,7 @@ class SLinear(SModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.original_w = self.original_w
         new.original_b = self.original_b
@@ -479,6 +480,7 @@ class SConv2d(SModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.original_w = self.original_w
         new.original_b = self.original_b
@@ -580,6 +582,7 @@ class NLinear(NModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         return new
 
@@ -605,6 +608,7 @@ class NConv2d(NModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         return new
 
@@ -810,7 +814,7 @@ class NModel(nn.Module):
     
     def clear_bad(self):
         for m in self.modules():
-            if isinstance(m, NModule) or isinstance(m, SModule) or isinstance(m, SAct) or isinstance(m, NAct):
+            if isinstance(m, NModule) or isinstance(m, SModule):
                 m.clear_bad()
     
     def push_S_device(self):
@@ -974,7 +978,7 @@ class SModel(nn.Module):
     
     def clear_bad(self):
         for m in self.modules():
-            if isinstance(m, NModule) or isinstance(m, SModule) or isinstance(m, SAct) or isinstance(m, NAct):
+            if isinstance(m, NModule) or isinstance(m, SModule): 
                 m.clear_bad()
     
     def get_mask_info(self):

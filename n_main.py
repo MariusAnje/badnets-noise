@@ -14,7 +14,8 @@ from deeplearning import evaluate_badnets, optimizer_picker, train_one_epoch
 from models import BadNet
 from utils import str2bool, get_dataset, get_model, prepare_model
 from utils import MTrain, TCEval, TMEachEval, CEval, MEachEval, UpdateBN
-from utils import copy_model, get_poision_datasets
+from utils import copy_model, get_poision_datasets, get_bad
+from bad_attack import BadAttack, PGD, FGSM, LM, binary_search_dist
 
 parser = argparse.ArgumentParser(description='Reproduce the basic backdoor attack in "Badnets: Identifying vulnerabilities in the machine learning model supply chain".')
 parser.add_argument('--dataset', default='MNIST', help='Which dataset to use (MNIST or CIFAR10, default: MNIST)')
@@ -76,6 +77,8 @@ parser.add_argument('--div', action='store', type=int, default=1,
         help='division points for second')
 parser.add_argument('--layerwise', action='store',type=str2bool, default=False,
         help='if do it layer by layer')
+parser.add_argument('--attack_dist', action='store',type=float, default=1e-4,
+        help='distance for attack')
 parser.add_argument('--attack_c', action='store',type=float, default=1e-4,
         help='c value for attack')
 parser.add_argument('--attack_runs', action='store',type=int, default=10,
@@ -107,7 +110,7 @@ def main():
     pathlib.Path("./checkpoints/").mkdir(parents=True, exist_ok=True)
     pathlib.Path("./logs/").mkdir(parents=True, exist_ok=True)
 
-    data_loader_train_file, data_loader_val_clean, data_loader_val_poisoned = get_poision_datasets(args, 64, 0)
+    data_loader_train_file, data_loader_val_clean, data_loader_val_poisoned = get_poision_datasets(args, 512, 0)
     data_loader_train = []
     for i in data_loader_train_file:
         data_loader_train.append(i)
@@ -118,35 +121,34 @@ def main():
     # optimizer = optimizer_picker(args.optimizer, model.parameters(), lr=args.lr)
     model = get_model(args)
     model, optimizer, w_optimizer, scheduler = prepare_model(model, device, args)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
 
     basic_model_path = "./checkpoints/badnet-%s.pth" % args.dataset
     start_time = time.time()
     if args.load_local:
         print("## Load model from : %s" % basic_model_path)
-        model.load_state_dict(torch.load(basic_model_path), strict=True)
+        model.from_first_back_second()
+        model.load_state_dict(torch.load(basic_model_path, map_location="cpu"), strict=True)
+        model.to_first_only()
         test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
         print(f"Test Clean Accuracy(TCA): {test_stats['clean_acc']:.4f}")
         print(f"Attack Success Rate(ASR): {test_stats['asr']:.4f}")
     else:
+        if args.pretrained:
+            model.from_first_back_second()
+            model.load_state_dict(torch.load(args.model_path, map_location="cpu"), strict=True)
+            model.to_first_only()
         print(f"Start training for {args.epochs} epochs")
         stats = []
-        for epoch in range(args.epochs):
-            train_stats = train_one_epoch(data_loader_train, model, criterion, optimizer, args.loss, device)
-            test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
-            print(f"# EPOCH {epoch}   loss: {train_stats['loss']:.4f} Test Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}")
-            
-            # save model 
-            torch.save(model.state_dict(), basic_model_path)
-
-            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                            **{f'test_{k}': v for k, v in test_stats.items()},
-                            'epoch': epoch,
-            }
-
-            # save training stats
-            stats.append(log_stats)
-            df = pd.DataFrame(stats)
-            df.to_csv("./logs/%s_trigger%d.csv" % (args.dataset, args.trigger_label), index=False, encoding='utf-8')
+        dataloader = (data_loader_train, data_loader_val_clean, data_loader_val_poisoned)
+        binary_search_dist(10, dataloader, args.attack_dist, LM, model, 
+                           criterion, args.attack_c, args.attack_runs, 
+                           args.attack_lr, device, verbose=True, 
+                           use_tqdm=args.use_tqdm)
+        # attacker = LM(model, criterion, args.attack_lr, args.attack_c, args.attack_runs, device)
+        # w = attacker.get_bad()
+        # # optimizer = torch.optim.Adam(w, lr=1e-3)
+        # attacker.attack(data_loader_train, data_loader_val_clean, data_loader_val_poisoned)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

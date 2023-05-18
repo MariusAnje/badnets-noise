@@ -785,3 +785,11 @@ class LossCrossAct(nn.Module):
         cross, act = self.get_average()
         self.clear()
         return cross, act
+
+def get_bad(self):
+    w = []
+    for m in self.modules():
+        if isinstance(m, modules.NModule) or isinstance(m, modules.SModule):
+            m.bad.requires_grad_()
+            w.append(m.bad)
+    return w

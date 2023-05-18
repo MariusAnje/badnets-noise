@@ -24,6 +24,7 @@ class QSLinear(SModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.input_range = self.input_range
         new.original_w = self.original_w
@@ -64,6 +65,7 @@ class QSConv2d(SModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.input_range = self.input_range
         new.original_w = self.original_w
@@ -104,6 +106,7 @@ class QNLinear(NModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.input_range = self.input_range
         return new
@@ -140,6 +143,7 @@ class QNConv2d(NModule):
         new.op = self.op
         new.noise = self.noise
         new.mask = self.mask
+        new.bad = self.bad
         new.scale = self.scale
         new.input_range = self.input_range 
         return new
