@@ -264,6 +264,7 @@ class SModule(nn.Module):
         self.weightS = nn.Parameter(torch.ones(self.op.weight.size()).requires_grad_())
         self.noise = torch.zeros_like(self.op.weight)
         self.mask = torch.ones_like(self.op.weight)
+        self.bad  = torch.zeros_like(self.op.weight)
         self.original_w = None
         self.original_b = None
         self.scale = 1.0
@@ -334,6 +335,9 @@ class SModule(nn.Module):
     
     def clear_noise(self):
         self.noise = torch.zeros_like(self.op.weight)
+    
+    def clear_bad(self):
+        self.bad = torch.zeros_like(self.op.weight)
     
     def mask_indicator(self, method, alpha=None):
         if method == "second":
@@ -538,6 +542,9 @@ class NModule(nn.Module):
     
     def clear_noise(self):
         self.noise = torch.zeros_like(self.op.weight)
+    
+    def clear_bad(self):
+        self.bad = torch.zeros_like(self.op.weight)
     
     def clear_mask(self):
         self.mask = torch.ones_like(self.op.weight)
@@ -801,6 +808,11 @@ class NModel(nn.Module):
             if isinstance(m, NModule) or isinstance(m, SModule) or isinstance(m, SAct) or isinstance(m, NAct):
                 m.clear_noise()
     
+    def clear_bad(self):
+        for m in self.modules():
+            if isinstance(m, NModule) or isinstance(m, SModule) or isinstance(m, SAct) or isinstance(m, NAct):
+                m.clear_bad()
+    
     def push_S_device(self):
         for m in self.modules():
             if isinstance(m, NModule) or isinstance(m, SModule):
@@ -959,6 +971,11 @@ class SModel(nn.Module):
         for m in self.modules():
             if isinstance(m, SModule) or isinstance(m, NModule) or isinstance(m, SAct) or isinstance(m, NAct):
                 m.clear_noise()
+    
+    def clear_bad(self):
+        for m in self.modules():
+            if isinstance(m, NModule) or isinstance(m, SModule) or isinstance(m, SAct) or isinstance(m, NAct):
+                m.clear_bad()
     
     def get_mask_info(self):
         total = 0

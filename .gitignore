@@ -131,3 +131,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+logs/
+checkpoints/
+checkpoints/badnet-MNIST.pth

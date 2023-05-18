@@ -144,6 +144,7 @@ def prepare_model(model, device, args):
             m.device = device
     model.push_S_device()
     model.clear_noise()
+    model.clear_bad()
     model.clear_mask()
     model.to_first_only()
     model.de_select_drop()
