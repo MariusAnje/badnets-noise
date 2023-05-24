@@ -111,10 +111,16 @@ def main():
     pathlib.Path("./checkpoints/").mkdir(parents=True, exist_ok=True)
     pathlib.Path("./logs/").mkdir(parents=True, exist_ok=True)
 
-    data_loader_train_file, data_loader_val_clean, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers)
+    data_loader_train_file, data_loader_val_clean_file, data_loader_val_poisoned_file = get_poision_datasets(args, args.batch_size, args.num_workers)
     data_loader_train = []
     for i in data_loader_train_file:
         data_loader_train.append(i)
+    data_loader_val_clean = []
+    for i in data_loader_val_clean_file:
+        data_loader_val_clean.append(i)
+    data_loader_val_poisoned = []
+    for i in data_loader_val_poisoned_file:
+        data_loader_val_poisoned.append(i)
 
 
     # model = BadNet(input_channels=1, output_num=args.nb_classes).to(device)
