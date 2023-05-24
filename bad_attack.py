@@ -196,9 +196,11 @@ def binary_search_dist(search_runs, dataloader, target_metric, attacker_class, m
         this_max = attacker.bad_max().item()
         this_l2 = attacker.bad_l2().item()
         this_accuracy = test_stats["clean_acc"] + test_stats["asr"]
+        clean = test_stats["clean_acc"]
+        asr = test_stats["asr"]
         metric = attacker.bad_max().item()
         if verbose:
-            print(f"C: {mid:.4e}, acc: {this_accuracy:.4f}, l2: {this_l2:.4f},  max: {this_max:.4f}")
+            print(f"C: {mid:.4e}, clean: {clean:.4f}, asr: {asr:.4f}, add: {this_accuracy:.4f}, l2: {this_l2:.4f},  max: {this_max:.4f}")
             pass
         if metric < target_metric:
             if start_flag:
