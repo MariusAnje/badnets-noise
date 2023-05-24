@@ -28,7 +28,7 @@ parser.add_argument('--batch_size', type=int, default=64, help='Batch size to sp
 parser.add_argument('--num_workers', type=int, default=0, help='Batch size to split dataset, default: 64')
 parser.add_argument('--lr', type=float, default=0.01, help='Learning rate of the model, default: 0.001')
 parser.add_argument('--download', action='store_true', help='Do you want to download data ( default false, if you add this param, then download)')
-parser.add_argument('--data_path', default='./data/', help='Place to load dataset (default: ./dataset/)')
+parser.add_argument('--data_path', default='~/Private/data', help='Place to load dataset (default: ./dataset/)')
 # parser.add_argument('--device', default='cpu', help='device to use for training / testing (cpu, or cuda:1, default: cpu)')
 # poison settings
 parser.add_argument('--poisoning_rate', type=float, default=0.1, help='poisoning portion (float, range from 0 to 1, default: 0.1)')
@@ -105,12 +105,13 @@ def main():
     #     os.environ['CUDA_VISIBLE_DEVICES'] = cuda_num
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # if you're using MBP M1, you can also use "mps"
     device = torch.device(args.device)
+    print(device)
 
     # create related path
     pathlib.Path("./checkpoints/").mkdir(parents=True, exist_ok=True)
     pathlib.Path("./logs/").mkdir(parents=True, exist_ok=True)
 
-    data_loader_train_file, data_loader_val_clean, data_loader_val_poisoned = get_poision_datasets(args, 512, 0)
+    data_loader_train_file, data_loader_val_clean, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers)
     data_loader_train = []
     for i in data_loader_train_file:
         data_loader_train.append(i)
@@ -136,7 +137,7 @@ def main():
     else:
         if args.pretrained:
             model.from_first_back_second()
-            model.load_state_dict(torch.load(args.model_path, map_location="cpu"), strict=True)
+            model.load_state_dict(torch.load(os.path.join(args.model_path,f"saved_B_{args.header}.pt"), map_location="cpu"), strict=True)
             model.to_first_only()
         print(f"Start training for {args.epochs} epochs")
         stats = []
