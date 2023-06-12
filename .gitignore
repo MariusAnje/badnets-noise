@@ -137,3 +137,4 @@ checkpoints/
 checkpoints/badnet-MNIST.pth
 pretrained/
 *.o*
+*.pt
