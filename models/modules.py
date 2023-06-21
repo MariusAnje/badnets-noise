@@ -273,6 +273,7 @@ class SModule(nn.Module):
         # N: number of bits per weight, m: number of bits per device
         # Dev_var: device variation before write and verify
         # write_var: device variation after write and verity
+        # Deprecated
         scale = self.op.weight.abs().max().item()
         noise_dev = torch.zeros_like(self.noise).to(self.op.weight.device)
         noise_write = torch.zeros_like(self.noise).to(self.op.weight.device)
