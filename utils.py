@@ -535,6 +535,8 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
         no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
         no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
         model.clear_mask()
+        if i == atk_start:
+            optimizer = torch.optim.SGD(model.parameters(), lr = 1e-4)
         if i >= atk_start:
             test_stats = attacker.attack(data_loader_train_poisoned, testloader, data_loader_val_poisoned)
             clean = test_stats["clean_acc"]
