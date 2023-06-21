@@ -177,6 +177,48 @@ class LM(BadAttack):
         test_stats["dist"] = self.bad_max()
         return test_stats
 
+class LMWM(BadAttack):
+    def __init__(self, model, criterion, lr, c, steps, device, use_tqdm=False) -> None:
+        super().__init__(model, criterion, lr, steps, device, use_tqdm)
+        self.c = c
+        self.optimizer = torch.optim.Adam(self.get_bad(), lr=lr)
+        self.optimizer_weight = torch.optim.SGD(model.parameters(), lr=1e-4)
+
+    def attack_one_epoch(self, data_loader):
+        running_loss = 0
+        criterion, optimizer, device = self.criterion, self.optimizer, self.device
+        self.model.train()
+        # for step, (batch_x, batch_y) in enumerate(tqdm(data_loader)):
+        for batch_x, batch_y in data_loader:
+            batch_x = batch_x.to(device, non_blocking=True)
+            batch_y = batch_y.to(device, non_blocking=True)
+            output = self.model(batch_x) # get predict label of batch_x
+            loss = criterion(output, batch_y)
+            cost = (loss * self.c + self.bad_max()) / (self.c + 1)
+            cost.backward()
+            running_loss += loss
+        return {
+                "loss": running_loss.item() / len(data_loader),
+                }
+    
+    def attack(self, data_loader_train, data_loader_val_clean, data_loader_val_poisoned):
+        if self.use_tqdm:
+            loader = tqdm(range(self.steps))
+        else:
+            loader = range(self.steps)
+        for i in loader:
+            self.optimizer.zero_grad()
+            self.attack_one_epoch(data_loader_train)
+            # torch.nn.utils.clip_grad_norm_(self.optimizer_weight.param_groups[0]["params"], 1e5)
+            self.optimizer.step()
+            self.optimizer_weight.step()
+            test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, self.model, self.device)
+            if self.use_tqdm:
+                loader.set_description(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
+            # print(f"#Epoch: [{i:03d}], Test Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Distance: {self.bad_max():.4f}")
+        test_stats["dist"] = self.bad_max()
+        return test_stats
+
 def binary_search_dist(search_runs, dataloader, target_metric, attacker_class, model, criterion, init_c, steps, lr, device, verbose=True, use_tqdm=False):
     start_flag = True
     low = 0

@@ -518,7 +518,7 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
         start_time = time.time()
         model.train()
         running_loss = 0.
-        model.set_mask("th", 0)
+        model.set_mask_zero()
         for images, labels in trainloader:
             model.clear_noise()
             if set_noise:
@@ -532,17 +532,17 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
             running_loss += loss.item()
         test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
         model.clear_noise()
-        no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
-        no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
         model.clear_mask()
-        if i == atk_start:
-            optimizer = torch.optim.SGD(model.parameters(), lr = 1e-4)
         if i >= atk_start:
             test_stats = attacker.attack(data_loader_train_poisoned, testloader, data_loader_val_poisoned)
             clean = test_stats["clean_acc"]
             asr = test_stats["asr"]
             dist = test_stats["dist"]
-        else:
+        model.set_mask_zero()
+        no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
+        no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
+        model.clear_mask()
+        if i < atk_start:
             clean = no_atk_clean
             asr = no_atk_asr
             dist = 0

@@ -376,6 +376,9 @@ class SModule(nn.Module):
         else:
             raise NotImplementedError(f"Mode: {mode} not supported, only support mode portion & th, ")
         self.mask = self.mask * mask
+
+    def set_mask_zero(self):
+        self.mask = torch.zeros_like(self.op.weight)
     
     def set_mask_mag(self, portion, mode):
         if mode == "portion":
@@ -996,6 +999,11 @@ class SModel(nn.Module):
         for m in self.modules():
             if isinstance(m, SModule):
                 m.set_mask(th, mode)
+    
+    def set_mask_zero(self):
+        for m in self.modules():
+            if isinstance(m, SModule):
+                m.set_mask_zero()
     
     def set_mask_mag(self, th, mode):
         for m in self.modules():
