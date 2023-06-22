@@ -225,3 +225,4 @@ def binary_search_dist(search_runs, dataloader, target_metric, attacker_class, m
             if np.abs(metric-target_metric) < 1e-5:
                 break
     return final_accuracy, final_max, final_l2, final_c
+
