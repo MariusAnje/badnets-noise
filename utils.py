@@ -518,21 +518,22 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
         start_time = time.time()
         model.train()
         running_loss = 0.
-        model.set_mask_zero()
-        for images, labels in trainloader:
+        if i < atk_start:
+            model.set_mask_zero()
+            for images, labels in trainloader:
+                model.clear_noise()
+                if set_noise:
+                    model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+                optimizer.zero_grad()
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                loss = criteriaF(outputs,labels)
+                loss.backward()
+                optimizer.step()
+                running_loss += loss.item()
+            test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
             model.clear_noise()
-            if set_noise:
-                model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
-            optimizer.zero_grad()
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss = criteriaF(outputs,labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
-        model.clear_noise()
-        model.clear_mask()
+            model.clear_mask()
         if i >= atk_start:
             test_stats = attacker.attack(data_loader_train_poisoned, testloader, data_loader_val_poisoned)
             clean = test_stats["clean_acc"]
