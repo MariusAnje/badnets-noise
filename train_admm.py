@@ -15,7 +15,7 @@ from models import BadNet
 from utils import str2bool, get_dataset, get_model, prepare_model
 from utils import AMTrain, MTrain, TCEval, TMEachEval, CEval, MEachEval, UpdateBN
 from utils import copy_model, get_poision_datasets, get_bad
-from bad_attack import BadAttack, PGD, FGSM, LM, binary_search_dist
+from bad_attack import BadAttack, PGD, FGSM, LM, LMWM, binary_search_dist
 
 
 
@@ -101,7 +101,7 @@ def main():
     model = get_model(args)
     model, optimizer, w_optimizer, scheduler = prepare_model(model, device, args)
     model_group = model, criterion, optimizer, scheduler, device, data_loader_train_clean, data_loader_val_clean
-    attacker = LM(model, criterion, args.attack_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
+    attacker = LMWM(model, criterion, args.attack_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
     # test_stats = attacker.attack(data_loader_train_poisoned, data_loader_val_clean, data_loader_val_poisoned)
     header = time.time()
     AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, args.train_epoch, args.attack_start, header, args.noise_type, args.dev_var, args.rate_max, args.rate_zero, 0., True, N=8, m=1)
