@@ -546,6 +546,9 @@ class NModule(nn.Module):
         self.noise[th_mat] = self.noise[th_mat].data.sign()
         self.noise = self.noise * scale * dev_var
     
+    def set_mask_zero(self):
+        self.mask = torch.zeros_like(self.op.weight)
+    
     def clear_noise(self):
         self.noise = torch.zeros_like(self.op.weight)
     
@@ -997,22 +1000,22 @@ class SModel(nn.Module):
 
     def set_mask(self, th, mode):
         for m in self.modules():
-            if isinstance(m, SModule):
+            if isinstance(m, SModule) or isinstance(m, NModule):
                 m.set_mask(th, mode)
     
     def set_mask_zero(self):
         for m in self.modules():
-            if isinstance(m, SModule):
+            if isinstance(m, SModule) or isinstance(m, NModule):
                 m.set_mask_zero()
     
     def set_mask_mag(self, th, mode):
         for m in self.modules():
-            if isinstance(m, SModule):
+            if isinstance(m, SModule) or isinstance(m, NModule):
                 m.set_mask_mag(th, mode)
     
     def set_mask_sail(self, th, mode, method, alpha=None):
         for m in self.modules():
-            if isinstance(m, SModule):
+            if isinstance(m, SModule) or isinstance(m, NModule):
                 m.set_mask_sail(th, mode, method, alpha)
     
     def clear_mask(self):

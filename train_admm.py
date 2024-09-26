@@ -68,6 +68,8 @@ def parse_args():
             help='# of runs for attack')
     parser.add_argument('--attack_lr', action='store',type=float, default=1e-4,
             help='learning rate for attack')
+    parser.add_argument('--attack_w_lr', action='store',type=float, default=1e-8,
+            help='learning rate for attack')
     parser.add_argument('--attack_method', action='store', default="max", choices=["max", "l2", "linf", "loss"],
             help='method used for attack')
     parser.add_argument('--attack_start', action='store', default=0, type=int,
@@ -101,7 +103,7 @@ def main():
     model = get_model(args)
     model, optimizer, w_optimizer, scheduler = prepare_model(model, device, args)
     model_group = model, criterion, optimizer, scheduler, device, data_loader_train_clean, data_loader_val_clean
-    attacker = LMWM(model, criterion, args.attack_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
+    attacker = LMWM(model, criterion, args.attack_lr, args.attack_w_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
     # test_stats = attacker.attack(data_loader_train_poisoned, data_loader_val_clean, data_loader_val_poisoned)
     header = time.time()
     AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, args.train_epoch, args.attack_start, header, args.noise_type, args.dev_var, args.rate_max, args.rate_zero, 0., True, N=8, m=1)

@@ -4,6 +4,7 @@ import numpy as np
 import torchvision
 import torchvision.transforms as transforms
 from torch import nn
+from models.modules import  SModule, NModule
 from models import modules
 from models.models import SCrossEntropyLoss, SMLP3, SMLP4, SLeNet, CIFAR, FakeSCrossEntropyLoss, SAdvNet
 from models.qmodels import QSLeNet, QCIFAR
@@ -518,22 +519,21 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
         start_time = time.time()
         model.train()
         running_loss = 0.
-        if i < atk_start:
-            model.set_mask_zero()
-            for images, labels in trainloader:
-                model.clear_noise()
-                if set_noise:
-                    model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
-                optimizer.zero_grad()
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                loss = criteriaF(outputs,labels)
-                loss.backward()
-                optimizer.step()
-                running_loss += loss.item()
-            test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+        model.set_mask_zero()
+        for images, labels in trainloader:
             model.clear_noise()
-            model.clear_mask()
+            if set_noise:
+                model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+            optimizer.zero_grad()
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss = criteriaF(outputs,labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+        test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+        model.clear_noise()
+        model.clear_mask()
         if i >= atk_start:
             test_stats = attacker.attack(data_loader_train_poisoned, testloader, data_loader_val_poisoned)
             clean = test_stats["clean_acc"]
@@ -554,7 +554,7 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
                 torch.save(model.state_dict(), f"tmp_best_{header}.pt")
         if verbose:
             end_time = time.time()
-            print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, ori acc: {no_atk_clean:.4f}, clean acc: {clean:.4f}, asr: {asr:.4f}, dist: {dist:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
+            print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, ori acc/asr: {no_atk_clean:.4f}/{no_atk_asr:.4f}, clean acc/asr: {clean:.4f}/{asr:.4f}, dist: {dist:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
         scheduler.step()
 
 def DMTrain(model_group, epochs, header, noise_type, dev_var, rate_max, rate_zero, write_var, verbose=False, **kwargs):

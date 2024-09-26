@@ -178,11 +178,12 @@ class LM(BadAttack):
         return test_stats
 
 class LMWM(BadAttack):
-    def __init__(self, model, criterion, lr, c, steps, device, use_tqdm=False) -> None:
+    def __init__(self, model, criterion, lr, w_lr, c, steps, device, use_tqdm=False) -> None:
         super().__init__(model, criterion, lr, steps, device, use_tqdm)
         self.c = c
         self.optimizer = torch.optim.Adam(self.get_bad(), lr=lr)
-        self.optimizer_weight = torch.optim.SGD(model.parameters(), lr=1e-4)
+        # self.optimizer_weight = torch.optim.SGD(model.parameters(), lr=w_lr)
+        self.optimizer_weight = torch.optim.Adam(model.parameters(), lr=w_lr)
 
     def attack_one_epoch(self, data_loader):
         running_loss = 0
