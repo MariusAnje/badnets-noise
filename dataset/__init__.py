@@ -13,7 +13,7 @@ def build_init_data(dataname, download, dataset_path):
     return train_data, test_data
 
 def build_poisoned_training_set(is_train, args):
-    transform, detransform = build_transform(args.dataset)
+    transform, detransform = build_transform(args.dataset, is_train)
     # print("Transform = ", transform)
 
     if args.dataset == 'CIFAR10':
@@ -53,20 +53,35 @@ def build_testset(is_train, args):
 
     return testset_clean, testset_poisoned
 
-def build_transform(dataset):
+def build_transform(dataset, is_train=False):
     if dataset == "CIFAR10":
-        mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+        # mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+        mean, std = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
     elif dataset == "MNIST":
         mean, std = (0.5,), (0.5,)
     else:
         raise NotImplementedError()
+    
+    normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+        #  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+            normalize])
+    train_transform = transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, 4),
+                transforms.ToTensor(),
+                normalize,
+                ])
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-        ])
+    # transform = transforms.Compose([
+    #    transforms.ToTensor(),
+    #    transforms.Normalize(mean, std)
+    #    ])
     mean = torch.as_tensor(mean)
     std = torch.as_tensor(std)
     detransform = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist()) # you can use detransform to recover the image
     
+    if is_train:
+        return train_transform, detransform
     return transform, detransform
