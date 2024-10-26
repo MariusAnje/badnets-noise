@@ -81,6 +81,7 @@ def build_transform(dataset, is_train=False):
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
             ])
+        train_transform = transform
     elif dataset == "TinyImageNet":
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
