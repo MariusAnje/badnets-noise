@@ -10,6 +10,8 @@ def build_init_data(dataname, download, dataset_path):
     elif dataname == 'CIFAR10':
         train_data = datasets.CIFAR10(root=dataset_path, train=True,  download=download)
         test_data  = datasets.CIFAR10(root=dataset_path, train=False, download=download)
+    else:
+        NotImplementedError
     return train_data, test_data
 
 def build_poisoned_training_set(is_train, args):

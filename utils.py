@@ -67,7 +67,8 @@ def get_dataset(args, BS, NW):
                 transforms.ToTensor(),
                 normalize,
                 ])
-        args.data_path = '~/Private/data/tiny-imagenet-200/train'
+        args.data_path = ['~/Private/data/tiny-imagenet-200/train',
+                          '~/Private/data/tiny-imagenet-200/val',]
         trainset = torchvision.datasets.ImageFolder(root='~/Private/data/tiny-imagenet-200/train', transform=train_transform)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=BS, shuffle=True, num_workers=8)
         secondloader = torch.utils.data.DataLoader(trainset, batch_size=BS//args.div, shuffle=False, num_workers=8)

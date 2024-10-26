@@ -121,6 +121,10 @@ class ImageFolderPoison(ImageFolder):
         train: bool = True,
         transform: Optional[Callable] = None,
     ) -> None:
+        if train:
+            root = root[0]
+        else:
+            root = root[1]
         super().__init__(root=root, transform=transform)
 
         self.width, self.height, self.channels = self.__shape_info__()
@@ -144,7 +148,7 @@ class ImageFolderPoison(ImageFolder):
         # Load the image using PIL
         img = self.loader(path)
         # img, target = self.data[index], self.targets[index]
-        img = Image.fromarray(img)
+        # img = Image.fromarray(img)
         # NOTE: According to the threat model, the trigger should be put on the image before transform.
         # (The attacker can only poison the dataset)
         if index in self.poi_indices:
