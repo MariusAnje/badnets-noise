@@ -85,12 +85,12 @@ def main():
     args = parse_args()
     print(args)
     device = torch.device(args.device)
-    tmp = args.poisoning_rate
-    data_loader_train_poisoned, _, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers)
-    args.poisoning_rate = 0
-    # data_loader_train_clean_file, _, _ = get_poision_datasets(args, args.batch_size, args.num_workers)
-    args.poisoning_rate = tmp
+    # tmp = args.poisoning_rate
     data_loader_train_clean, _, data_loader_val_clean = get_dataset(args, args.batch_size, args.num_workers)
+    data_loader_train_poisoned, _, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers)
+    # args.poisoning_rate = 0
+    # data_loader_train_clean_file, _, _ = get_poision_datasets(args, args.batch_size, args.num_workers)
+    # args.poisoning_rate = tmp
 
     criterion = torch.nn.CrossEntropyLoss()
     model = get_model(args)

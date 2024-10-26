@@ -1,4 +1,4 @@
-from .poisoned_dataset import CIFAR10Poison, MNISTPoison
+from .poisoned_dataset import CIFAR10Poison, MNISTPoison, ImageFolderPoison
 from torchvision import datasets, transforms
 import torch 
 import os 
@@ -22,6 +22,9 @@ def build_poisoned_training_set(is_train, args):
     elif args.dataset == 'MNIST':
         trainset = MNISTPoison(args, args.data_path, train=is_train, download=True, transform=transform)
         nb_classes = 10
+    elif args.dataset == 'TinyImageNet':
+        trainset = ImageFolderPoison(args, args.data_path, train=is_train, transform=transform)
+        nb_classes = 200
     else:
         raise NotImplementedError()
 
@@ -44,6 +47,10 @@ def build_testset(is_train, args):
         testset_clean = datasets.MNIST(args.data_path, train=is_train, download=True, transform=transform)
         testset_poisoned = MNISTPoison(args, args.data_path, train=is_train, download=True, transform=transform)
         nb_classes = 10
+    elif args.dataset == 'TinyImageNet':
+        testset_poisoned = ImageFolderPoison(args, args.data_path, train=is_train, transform=transform)
+        testset_clean = testset_poisoned
+        nb_classes = 200
     else:
         raise NotImplementedError()
 
