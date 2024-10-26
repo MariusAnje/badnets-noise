@@ -1,4 +1,4 @@
-from .poisoned_dataset import CIFAR10Poison, MNISTPoison
+from .poisoned_dataset import CIFAR10Poison, MNISTPoison, ImageFolderPoison
 from torchvision import datasets, transforms
 import torch 
 import os 
@@ -22,6 +22,9 @@ def build_poisoned_training_set(is_train, args):
     elif args.dataset == 'MNIST':
         trainset = MNISTPoison(args, args.data_path, train=is_train, download=True, transform=transform)
         nb_classes = 10
+    elif args.dataset == 'TinyImageNet':
+        trainset = ImageFolderPoison(args, args.data_path, train=is_train, transform=transform)
+        nb_classes = 200
     else:
         raise NotImplementedError()
 
@@ -44,6 +47,10 @@ def build_testset(is_train, args):
         testset_clean = datasets.MNIST(args.data_path, train=is_train, download=True, transform=transform)
         testset_poisoned = MNISTPoison(args, args.data_path, train=is_train, download=True, transform=transform)
         nb_classes = 10
+    elif args.dataset == 'TinyImageNet':
+        testset_poisoned = ImageFolderPoison(args, args.data_path, train=is_train, transform=transform)
+        testset_clean = testset_poisoned
+        nb_classes = 200
     else:
         raise NotImplementedError()
 
@@ -57,27 +64,40 @@ def build_transform(dataset, is_train=False):
     if dataset == "CIFAR10":
         # mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
         mean, std = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
+        normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+            #  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+                normalize])
+        train_transform = transforms.Compose([
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomCrop(32, 4),
+                    transforms.ToTensor(),
+                    normalize,
+                    ])
     elif dataset == "MNIST":
         mean, std = (0.5,), (0.5,)
-    else:
-        raise NotImplementedError()
-    
-    normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-        #  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-            normalize])
-    train_transform = transforms.Compose([
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+            ])
+        train_transform = transform
+    elif dataset == "TinyImageNet":
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+        transform = transforms.Compose(
+                [transforms.ToTensor(),
+                 normalize,
+                ])
+        train_transform = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
-                transforms.RandomCrop(32, 4),
+                transforms.RandomCrop(64, 4),
                 transforms.ToTensor(),
                 normalize,
                 ])
-
-    # transform = transforms.Compose([
-    #    transforms.ToTensor(),
-    #    transforms.Normalize(mean, std)
-    #    ])
+    else:
+        raise NotImplementedError()
+    
     mean = torch.as_tensor(mean)
     std = torch.as_tensor(std)
     detransform = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist()) # you can use detransform to recover the image
