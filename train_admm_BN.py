@@ -13,7 +13,7 @@ from dataset import build_poisoned_training_set, build_testset
 from deeplearning import evaluate_badnets, optimizer_picker, train_one_epoch
 from models import BadNet
 from utils import str2bool, get_dataset, get_model, prepare_model
-from utils import AMTrain, MTrain, TCEval, TMEachEval, CEval, MEachEval, UpdateBN
+from utils import AMTrain, AMTrainBN, MTrain, TCEval, TMEachEval, CEval, MEachEval, UpdateBN
 from utils import copy_model, get_poision_datasets, get_bad
 from bad_attack import BadAttack, PGD, FGSM, LM, LMWM, binary_search_dist
 
@@ -100,7 +100,7 @@ def main():
     # test_stats = attacker.attack(data_loader_train_poisoned, data_loader_val_clean, data_loader_val_poisoned)
     header = time.time()
     print("Traning starts!")
-    AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, args.train_epoch, args.attack_start, header, args.noise_type, args.dev_var, args.rate_max, args.rate_zero, 0., True, N=8, m=1)
+    AMTrainBN(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, args.train_epoch, args.attack_start, header, args.noise_type, args.dev_var, args.rate_max, args.rate_zero, 0., True, N=8, m=1)
     # MTrain(model_group, args.train_epoch, header, "Four", args.train_var, 1, 1, 0, verbose=True, N=1, m=1)
     state_dict = torch.load(f"tmp_best_{header}.pt")
     model.load_state_dict(state_dict)

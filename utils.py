@@ -18,6 +18,25 @@ import logging
 from dataset import build_poisoned_training_set, build_testset
 from deeplearning import evaluate_badnets
 
+def backup_BN(model):
+    backup_list = {}
+    state_dict = model.state_dict()
+    for key in state_dict:
+        if ".bn" in key:
+            backup_list[key] = torch.zeros_like(state_dict[key].data)
+            backup_list[key] += state_dict[key].data
+    return backup_list
+
+def load_BN(model, backup_list):
+    for key in backup_list:
+        model.state_dict()[key].data = torch.zeros_like(model.state_dict()[key].data)
+        model.state_dict()[key].data += backup_list[key].data
+
+def switch_BN(model, backup_list):
+    new_backup = backup_BN(model)
+    load_BN(model, backup_list)
+    return new_backup
+
 def get_memory_dataset(file_set_list:list):
     newset_list = []
     for file_set in file_set_list:
@@ -70,10 +89,10 @@ def get_dataset(args, BS, NW):
         args.data_path = ['~/Private/data/tiny-imagenet-200/train',
                           '~/Private/data/tiny-imagenet-200/val',]
         trainset = torchvision.datasets.ImageFolder(root='~/Private/data/tiny-imagenet-200/train', transform=train_transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=BS, shuffle=True, num_workers=8)
-        secondloader = torch.utils.data.DataLoader(trainset, batch_size=BS//args.div, shuffle=False, num_workers=8)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=BS, shuffle=True, num_workers=4)
+        secondloader = torch.utils.data.DataLoader(trainset, batch_size=BS//args.div, shuffle=False, num_workers=4)
         testset = torchvision.datasets.ImageFolder(root='~/Private/data/tiny-imagenet-200/val',  transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=BS, shuffle=False, num_workers=8)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=BS, shuffle=False, num_workers=4)
     elif args.model == "QVGGIN" or args.model == "QResIN":
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         pre_process = [
@@ -551,6 +570,57 @@ def AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_p
             clean = test_stats["clean_acc"]
             asr = test_stats["asr"]
             dist = test_stats["dist"]
+        model.set_mask_zero()
+        no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
+        no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
+        model.clear_mask()
+        if i < atk_start:
+            clean = no_atk_clean
+            asr = no_atk_asr
+            dist = 0
+        test_acc = clean + asr
+        if set_noise:
+            if test_acc > best_acc:
+                best_acc = test_acc
+                torch.save(model.state_dict(), f"tmp_best_{header}.pt")
+        if verbose:
+            end_time = time.time()
+            print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, ori acc/asr: {no_atk_clean:.4f}/{no_atk_asr:.4f}, clean acc/asr: {clean:.4f}/{asr:.4f}, dist: {dist:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
+        scheduler.step()
+
+def AMTrainBN(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, epochs, atk_start, header, noise_type, dev_var, rate_max, rate_zero, write_var, verbose=False, **kwargs):
+    model, criteriaF, optimizer, scheduler, device, trainloader, testloader = model_group
+    best_acc = 0.0
+    set_noise = True
+    for i in range(epochs):
+        start_time = time.time()
+        model.train()
+        running_loss = 0.
+        model.set_mask_zero()
+        for images, labels in trainloader:
+            model.clear_noise()
+            if set_noise:
+                model.set_noise_multiple(noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+            optimizer.zero_grad()
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss = criteriaF(outputs,labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+        test_acc = MEachEval(model_group, noise_type, dev_var, rate_max, rate_zero, write_var, **kwargs)
+        model.clear_noise()
+        model.clear_mask()
+        if i >= atk_start:
+            if i == atk_start:
+                # clean_BN = backup_BN(model)
+                atk_BN = backup_BN(model)
+            clean_BN = switch_BN(model, atk_BN)
+            test_stats = attacker.attack(data_loader_train_poisoned, testloader, data_loader_val_poisoned)
+            clean = test_stats["clean_acc"]
+            asr = test_stats["asr"]
+            dist = test_stats["dist"]
+            atk_BN = switch_BN(model, clean_BN)
         model.set_mask_zero()
         no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
         no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
