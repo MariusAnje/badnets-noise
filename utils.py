@@ -24,13 +24,15 @@ def backup_BN(model):
     for key in state_dict:
         if ".bn" in key:
             backup_list[key] = torch.zeros_like(state_dict[key].data)
-            backup_list[key] += state_dict[key].data
+            backup_list[key].data += state_dict[key].data
     return backup_list
 
 def load_BN(model, backup_list):
+    state_dict = model.state_dict()
     for key in backup_list:
-        model.state_dict()[key].data = torch.zeros_like(model.state_dict()[key].data)
-        model.state_dict()[key].data += backup_list[key].data
+        state_dict[key].data = torch.zeros_like(backup_list[key].data)
+        state_dict[key].data += backup_list[key].data
+    model.load_state_dict(state_dict)
 
 def switch_BN(model, backup_list):
     new_backup = backup_BN(model)
@@ -621,6 +623,7 @@ def AMTrainBN(model_group, attacker, data_loader_train_poisoned, data_loader_val
             asr = test_stats["asr"]
             dist = test_stats["dist"]
             atk_BN = switch_BN(model, clean_BN)
+            # clean_BN = switch_BN(model, atk_BN)
         model.set_mask_zero()
         no_atk_test_stats = evaluate_badnets(testloader, data_loader_val_poisoned, model, device)
         no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
@@ -638,6 +641,9 @@ def AMTrainBN(model_group, attacker, data_loader_train_poisoned, data_loader_val
             end_time = time.time()
             print(f"epoch: {i:-3d}, test acc: {test_acc:.4f}, ori acc/asr: {no_atk_clean:.4f}/{no_atk_asr:.4f}, clean acc/asr: {clean:.4f}/{asr:.4f}, dist: {dist:.4f}, loss: {running_loss / len(trainloader):.4f}, used time: {end_time - start_time:.4f}")
         scheduler.step()
+        if "dist_th" in kwargs:
+            if dist > kwargs["dist_th"]:
+                break
 
 def DMTrain(model_group, epochs, header, noise_type, dev_var, rate_max, rate_zero, write_var, verbose=False, **kwargs):
     model, criteriaF, optimizer, scheduler, device, trainloader, testloader = model_group
