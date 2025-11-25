@@ -9,7 +9,7 @@ from models.qmodules import QSConv2d, QSLinear, QNConv2d, QNLinear
 from deeplearning import evaluate_badnets
 
 class BadAttack():
-    def __init__(self, model, criterion, lr, steps, device, use_tqdm=False) -> None:
+    def __init__(self, model, criterion, lr, steps, device, use_tqdm=False, verbose=False) -> None:
         self.model = model
         self.criterion = criterion
         self.optimizer = torch.optim.SGD(self.get_bad(), lr=0.1)
@@ -18,6 +18,7 @@ class BadAttack():
         self._max = 0
         self.steps = steps
         self.use_tqdm = use_tqdm
+        self.verbose = verbose
 
     def get_bad(self):
         w = []
@@ -88,9 +89,34 @@ class BadAttack():
             test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, self.model, self.device)
             if self.use_tqdm:
                 loader.set_description(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
+            elif self.verbose == True:
+                print(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
             # print(f"#Epoch: [{i:03d}], Test Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Distance: {self.bad_max():.4f}")
         test_stats["dist"] = self.bad_max()
         return test_stats
+
+class Simple(BadAttack):
+    def attack_one_epoch(self, data_loader):
+        running_loss = 0
+        criterion, optimizer, device = self.criterion, self.optimizer, self.device
+        self.model.train()
+        # for step, (batch_x, batch_y) in enumerate(tqdm(data_loader)):
+        for step, (batch_x, batch_y) in enumerate(data_loader):
+            optimizer.zero_grad()
+            batch_x = batch_x.to(device, non_blocking=True)
+            batch_y = batch_y.to(device, non_blocking=True)
+            output = self.model(batch_x) # get predict label of batch_x
+            loss = criterion(output, batch_y)
+            loss.backward()
+            self._max = 0
+            running_loss += loss
+            for m in self.model.modules():
+                if isinstance(m, NModule) or isinstance(m, SModule):
+                    m.bad.data -= m.op.weight.grad.data * self.lr
+                    self._max = max(m.bad.data.max().item(), self._max)
+        return {
+                "loss": running_loss.item() / len(data_loader),
+                }
 
 class PGD(BadAttack):
     def attack_one_epoch(self, data_loader):
@@ -109,7 +135,7 @@ class PGD(BadAttack):
             running_loss += loss
             for m in self.model.modules():
                 if isinstance(m, NModule) or isinstance(m, SModule):
-                    m.bad.data -= m.op.weight.grad.data / m.op.weight.grad.data.abs().max() * self.lr
+                    m.bad.data -= m.op.weight.grad.data / m.op.weight.grad.data.abs().max() * self.lr/len(data_loader)
                     self._max = max(m.bad.data.max().item(), self._max)
         return {
                 "loss": running_loss.item() / len(data_loader),
@@ -132,15 +158,15 @@ class FGSM(BadAttack):
             running_loss += loss
             for m in self.model.modules():
                 if isinstance(m, NModule) or isinstance(m, SModule):
-                    m.bad.data -= m.op.weight.grad.data.sign() * self.lr
+                    m.bad.data -= m.op.weight.grad.data.sign() * self.lr/len(data_loader)
                     self._max = max(m.bad.data.max().item(), self._max)
         return {
                 "loss": running_loss.item() / len(data_loader),
                 }
 
 class LM(BadAttack):
-    def __init__(self, model, criterion, lr, c, steps, device, use_tqdm=False) -> None:
-        super().__init__(model, criterion, lr, steps, device, use_tqdm)
+    def __init__(self, model, criterion, lr, c, steps, device, use_tqdm=False, verbose=False) -> None:
+        super().__init__(model, criterion, lr, steps, device, use_tqdm, verbose)
         self.c = c
         self.optimizer = torch.optim.Adam(self.get_bad(), lr=lr)
 
@@ -173,13 +199,15 @@ class LM(BadAttack):
             test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, self.model, self.device)
             if self.use_tqdm:
                 loader.set_description(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
+            elif self.verbose:
+                print(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
             # print(f"#Epoch: [{i:03d}], Test Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Distance: {self.bad_max():.4f}")
         test_stats["dist"] = self.bad_max()
         return test_stats
 
 class LMWM(BadAttack):
-    def __init__(self, model, criterion, lr, w_lr, c, steps, device, use_tqdm=False) -> None:
-        super().__init__(model, criterion, lr, steps, device, use_tqdm)
+    def __init__(self, model, criterion, lr, w_lr, c, steps, device, use_tqdm=False, verbose=False) -> None:
+        super().__init__(model, criterion, lr, steps, device, use_tqdm, verbose)
         self.c = c
         self.optimizer = torch.optim.Adam(self.get_bad(), lr=lr)
         # self.optimizer_weight = torch.optim.SGD(model.parameters(), lr=w_lr)
@@ -216,6 +244,8 @@ class LMWM(BadAttack):
             test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, self.model, self.device)
             if self.use_tqdm:
                 loader.set_description(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
+            elif self.verbose:
+                print(f"Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Dist: {self.bad_max():.4f}")
             # print(f"#Epoch: [{i:03d}], Test Acc: {test_stats['clean_acc']:.4f}, ASR: {test_stats['asr']:.4f}, Distance: {self.bad_max():.4f}")
         test_stats["dist"] = self.bad_max()
         return test_stats

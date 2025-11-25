@@ -114,7 +114,8 @@ class QNLinear(NModule):
     def forward(self, x):
         # x = x = self.function(x, quant(self.N,self.op.weight) + self.noise, None)
         # x = x = self.function(x, quant(self.N,self.op.weight * self.mask) + self.noise, None)
-        x = x = self.function(x, quant(self.N,self.op.weight) + self.noise * (1-self.mask) + self.bad * self.mask, None)
+        # x = x = self.function(x, quant(self.N,self.op.weight) + self.noise * (1-self.mask) + self.bad * self.mask, None)
+        x = self.function(x, quant(self.N,self.op.weight) + self.noise + self.bad* self.mask*self.op.weight.max(), None)
         x = x * self.scale
         if self.op.bias is not None:
             x += self.op.bias
@@ -158,7 +159,8 @@ class QNConv2d(NModule):
     def forward(self, x):
         # x = self.function(x, quant(self.N, self.op.weight) + self.noise, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         # x = self.function(x, quant(self.N, self.op.weight * self.mask) + self.noise, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
-        x = self.function(x, quant(self.N, self.op.weight) + self.noise * (1-self.mask) + self.bad*self.mask, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
+        # x = self.function(x, quant(self.N, self.op.weight) + self.noise * (1-self.mask) + self.bad*self.mask, None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
+        x = self.function(x, quant(self.N, self.op.weight) + self.noise + self.bad*self.mask*self.op.weight.max(), None, self.op.stride, self.op.padding, self.op.dilation, self.op.groups)
         x = x * self.scale
         if self.op.bias is not None:
             x += quant(self.N, self.op.bias).reshape(1,-1,1,1).expand_as(x)

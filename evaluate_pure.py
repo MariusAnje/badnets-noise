@@ -23,6 +23,7 @@ from bad_attack import BadAttack, PGD, FGSM, LM, LMWM, binary_search_dist
 def parse_args():
     parser = argparse.ArgumentParser(description='Reproduce the basic backdoor attack in "Badnets: Identifying vulnerabilities in the machine learning model supply chain".')
     parser.add_argument('--dataset', default='MNIST', help='Which dataset to use (MNIST or CIFAR10, default: MNIST)')
+    parser.add_argument('--pretrained', default='lol.pt', help='The pretrained model path')
     parser.add_argument('--nb_classes', default=10, type=int, help='number of the classification types')
     parser.add_argument('--load_local', action='store_true', help='train model or directly load model (default true, if you add this param, then load trained local model to evaluate the performance)')
     parser.add_argument('--loss', default='mse', help='Which loss function to use (mse or cross, default: mse)')
@@ -100,36 +101,18 @@ def main():
     attacker = LMWM(model, criterion, args.attack_lr, args.attack_w_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
     # test_stats = attacker.attack(data_loader_train_poisoned, data_loader_val_clean, data_loader_val_poisoned)
     header = time.time()
-    print("Traning starts!")
-    AMTrain(model_group, attacker, data_loader_train_poisoned, data_loader_val_poisoned, args.train_epoch, args.attack_start, header, args.noise_type, args.dev_var, args.rate_max, args.rate_zero, 0., True, N=8, m=1)
-    distances = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
-    for dist in distances:
-        print(dist)
-        acc_b_list = []
-        asr_b_list = []
-        acc_p_list = []
-        asr_p_list = []
-        for _ in range(args.noise_epoch):
-            model.set_noise_multiple("Four", dist, 1, 1, 0, N=1, m=1)
-            model.set_mask_zero()
-            no_atk_test_stats = evaluate_badnets(data_loader_val_clean, 
-            data_loader_val_poisoned, model, device)
-            acc_b = no_atk_test_stats['clean_acc']
-            asr_b = no_atk_test_stats['asr']
-            model.clear_mask()
-            noisy_atk_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
-            acc_p = noisy_atk_stats['clean_acc']
-            asr_p = noisy_atk_stats['asr']
-            acc_b_list.append(acc_b)
-            asr_b_list.append(asr_b)
-            acc_p_list.append(acc_p)
-            asr_p_list.append(asr_p)
-        print(f"Dist: {dist:.3f}, ori acc/asr: {np.mean(acc_b_list):.4f}/{np.mean(asr_b_list):.4f}, noise acc/asr: {np.mean(acc_p_list):.4f}/{np.mean(asr_p_list):.4f}, dist: {dist:.4f}")
-        print(f"For STD, ori acc/asr: {np.std(acc_b_list):.4f}/{np.std(asr_b_list):.4f}, noise acc/asr: {np.std(acc_p_list):.4f}/{np.std(asr_p_list):.4f}, dist: {dist:.4f}")
-    state_dict = torch.load(f"tmp_best_{header}.pt")
+    state_dict = torch.load(args.pretrained, map_location=device)
     model.load_state_dict(state_dict)
-    new_state_dict = model.state_dict()
-    torch.save(new_state_dict, f"saved_B_{header}.pt")
+    print(state_dict["conv2.bad"])
+    model.clear_mask()
+    atk_test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
+    clean, asr = atk_test_stats["clean_acc"], atk_test_stats["asr"]
+    dist = attacker.bad_max()
+    model.set_mask_zero()
+    no_atk_test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
+    no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
+
+    print(f"ori acc/asr: {no_atk_clean:.4f}/{no_atk_asr:.4f}, clean acc/asr: {clean:.4f}/{asr:.4f}, dist: {dist:.4f}")
 
 if __name__ == "__main__":
     main()

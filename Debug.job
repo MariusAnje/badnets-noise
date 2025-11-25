@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#$ -r y
+#$ -q gpu@qa-xp*
+#$ -N debug
+#$ -pe smp 4
+#$ -l gpu=1
+
+fsync $SGE_STDOUT_PATH &
+
+# python train_admm.py --model QLeNet --train_epoch 100 --dev_var 0.0 --attack_c 1e-8 --attack_lr 1e-4 --attack_w_lr 7e-4 --attack_start 1
+
+# python train_admm.py --model QCIFAR --dataset CIFAR10 --train_epoch 200 --dev_var 0.0 --attack_c 1e-7 --attack_lr 3e-5 --attack_w_lr 1e-4 --attack_start 10 --train_var 0
+
+# python train_admm.py --model QRes18 --dataset CIFAR10 --train_epoch 200 --dev_var 0.0 --attack_c 1e-9 --attack_lr 1e-3 --attack_w_lr 0 --attack_start 100
+
+python train_admm_BN.py --model QRes18 --dataset CIFAR10 --train_epoch 100 --dev_var 0.0 --attack_c 1e-9 --attack_lr 1e-2 --attack_w_lr 0 --attack_start 1
+
+# python train_admm_BN.py --model QTIN --dataset TinyImageNet --nb_classes 200 --train_epoch 200 --dev_var 0.0 --attack_c 1e-7 --attack_lr 1e-4 --attack_w_lr 1e-6 --attack_start 150
+
+# python train_admm.py --model QTIN --dataset TinyImageNet --nb_classes 200 --train_epoch 200 --dev_var 0.0 --attack_c 1e-7 --attack_lr 5e-4 --attack_w_lr 0 --attack_start 150

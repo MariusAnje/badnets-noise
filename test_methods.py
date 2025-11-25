@@ -15,7 +15,7 @@ from models import BadNet
 from utils import str2bool, get_dataset, get_model, prepare_model
 from utils import AMTrain, AMTrainBN, MTrain, TCEval, TMEachEval, CEval, MEachEval, UpdateBN
 from utils import copy_model, get_poision_datasets, get_bad
-from bad_attack import BadAttack, PGD, FGSM, LM, LMWM, binary_search_dist
+from bad_attack import BadAttack, PGD, Simple, FGSM, LM, LMWM, binary_search_dist
 
 
 
@@ -78,13 +78,15 @@ def parse_args():
             help='when to start attack')
     parser.add_argument('--mem_dataset', action='store', default=True, type=str2bool,
             help='if this is a memory dataset or a file one')
+    parser.add_argument('--method', action='store', default="LM",
+            help='if this is a memory dataset or a file one')
     args = parser.parse_args()
     return args
 
-def get_pretrained_data_path(args, model, base_dir="./pretrained"):
+def get_pretrained(args, model, device, base_dir="./pretrained"):
     model_dir = f"{base_dir}/{args.model}/saved_B_{args.header}.pt"
-    state_dict = torch.load(model_dir, map_location="cpu")
-    model = model.load_state_dict(state_dict)
+    state_dict = torch.load(model_dir, map_location=device)
+    model.load_state_dict(state_dict)
     return model
 
 
@@ -94,14 +96,25 @@ def main():
     device = torch.device(args.device)
     # tmp = args.poisoning_rate
     data_loader_train_clean, _, data_loader_val_clean = get_dataset(args, args.batch_size, args.num_workers)
-    data_loader_train_poisoned, _, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers)
+    data_loader_train_poisoned, _, data_loader_val_poisoned = get_poision_datasets(args, args.batch_size, args.num_workers, memory=False)
 
     criterion = torch.nn.CrossEntropyLoss()
     model = get_model(args)
-    model = get_pretrained_data_path(args, model)
     model, optimizer, w_optimizer, scheduler = prepare_model(model, device, args)
+    model = get_pretrained(args, model, device)
+    # model, optimizer, w_optimizer, scheduler = prepare_model(model, device, args)
     model_group = model, criterion, optimizer, scheduler, device, data_loader_train_clean, data_loader_val_clean
-    attacker = LMWM(model, criterion, args.attack_lr, args.attack_w_lr, args.attack_c, args.attack_runs, device, args.use_tqdm)
+    print(CEval(model_group))
+    if args.method == "Simple":
+        attacker = Simple(model, criterion, args.attack_lr, args.attack_runs, device, args.use_tqdm, True)
+    elif args.method == "FGSM":
+        attacker = FGSM(model, criterion, args.attack_lr, args.attack_runs, device, args.use_tqdm, True)
+    elif args.method == "PGD":
+        attacker = PGD(model, criterion, args.attack_lr, args.attack_runs, device, args.use_tqdm, True)
+    elif args.method == "LM":
+        attacker = LM(model, criterion, args.attack_lr, args.attack_c, args.attack_runs, device, args.use_tqdm, True)
+    else:
+        raise NotImplementedError(f"{args.method} not implemented!")
     test_stats = attacker.attack(data_loader_train_poisoned, data_loader_val_clean, data_loader_val_poisoned)
     print(test_stats)
 

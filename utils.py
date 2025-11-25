@@ -48,10 +48,11 @@ def get_memory_dataset(file_set_list:list):
         newset_list.append(newset)
     return newset_list
 
-def get_poision_datasets(args, BS, NW):
+def get_poision_datasets(args, BS, NW, memory=True):
     dataset_train, args.nb_classes = build_poisoned_training_set(is_train=True, args=args)
     dataset_val_clean, dataset_val_poisoned = build_testset(is_train=False, args=args)
-    dataset_train, dataset_val_clean, dataset_val_poisoned = get_memory_dataset([dataset_train, dataset_val_clean, dataset_val_poisoned])
+    if memory:
+        dataset_train, dataset_val_clean, dataset_val_poisoned = get_memory_dataset([dataset_train, dataset_val_clean, dataset_val_poisoned])
     data_loader_train        = torch.utils.data.DataLoader(dataset_train,         batch_size=BS, shuffle=True, num_workers=NW)
     data_loader_val_clean    = torch.utils.data.DataLoader(dataset_val_clean,     batch_size=BS, shuffle=False, num_workers=NW)
     data_loader_val_poisoned = torch.utils.data.DataLoader(dataset_val_poisoned,  batch_size=BS, shuffle=False, num_workers=NW)

@@ -264,7 +264,7 @@ class SModule(nn.Module):
         self.weightS = nn.Parameter(torch.ones(self.op.weight.size()).requires_grad_())
         self.noise = torch.zeros_like(self.op.weight)
         self.mask = torch.ones_like(self.op.weight)
-        self.bad  = torch.zeros_like(self.op.weight)
+        self.bad  = nn.Parameter(torch.zeros_like(self.op.weight))
         self.original_w = None
         self.original_b = None
         self.scale = 1.0
@@ -338,7 +338,7 @@ class SModule(nn.Module):
         self.noise = torch.zeros_like(self.op.weight)
     
     def clear_bad(self):
-        self.bad = torch.zeros_like(self.op.weight)
+        self.bad = nn.Parameter(torch.zeros_like(self.op.weight))
     
     def mask_indicator(self, method, alpha=None):
         if method == "second":
@@ -553,7 +553,7 @@ class NModule(nn.Module):
         self.noise = torch.zeros_like(self.op.weight)
     
     def clear_bad(self):
-        self.bad = torch.zeros_like(self.op.weight)
+        self.bad = nn.Parameter(torch.zeros_like(self.op.weight))
     
     def clear_mask(self):
         self.mask = torch.ones_like(self.op.weight)
