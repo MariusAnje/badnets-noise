@@ -103,7 +103,9 @@ def main():
     header = time.time()
     state_dict = torch.load(args.pretrained, map_location=device)
     model.load_state_dict(state_dict)
-    print(state_dict["conv2.bad"])
+    print(state_dict.keys())
+    model.eval()
+    model.clear_noise()
     model.clear_mask()
     atk_test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
     clean, asr = atk_test_stats["clean_acc"], atk_test_stats["asr"]
@@ -111,6 +113,7 @@ def main():
     model.set_mask_zero()
     no_atk_test_stats = evaluate_badnets(data_loader_val_clean, data_loader_val_poisoned, model, device)
     no_atk_clean, no_atk_asr = no_atk_test_stats["clean_acc"], no_atk_test_stats["asr"]
+    print(CEval(model_group))
 
     print(f"ori acc/asr: {no_atk_clean:.4f}/{no_atk_asr:.4f}, clean acc/asr: {clean:.4f}/{asr:.4f}, dist: {dist:.4f}")
 
